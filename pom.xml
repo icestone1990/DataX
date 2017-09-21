@@ -84,6 +84,9 @@
         <module>hbase11xwriter</module>
         <module>hbase094xwriter</module>
 
+        <!-- other -->
+        <module>greenplumwriter</module>
+
         <!-- some support module -->
         <module>plugin-rdbms-util</module>
         <module>plugin-unstructured-storage-util</module>

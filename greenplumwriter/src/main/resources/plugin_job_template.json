@@ -1,0 +1,17 @@
+{
+    "name": "greenplumwriter",
+    "parameter": {
+        "username": "",
+        "password": "",
+        "writeMode": "",
+        "column": [],
+        "preSql": [],
+        "connection": [
+            {
+                "jdbcUrl": "",
+                "table": []
+            }
+        ],
+        "postSql":[]
+    }
+}
