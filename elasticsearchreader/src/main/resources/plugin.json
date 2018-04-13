@@ -1,0 +1,6 @@
+{
+    "name": "elasticsearchreader",
+    "class": "com.alibaba.datax.plugin.reader.elasticsearchreader.ESReader",
+    "description": "未在生产环境中使用  原理: elasticsearch-sql",
+    "developer": "icestone1990@gmail.com"
+}
