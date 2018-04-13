@@ -19,8 +19,10 @@ public class Key {
     public static final String DATE_FORMAT = "dateFormat";
     // must have
     public static final String WRITE_MODE = "writeMode";
-    // must have
+
     public static final String FIELD_DELIMITER = "fieldDelimiter";
+
+    public static final String LINE_DELIMITER = "lineDelimiter";
     // not must, default UTF-8
     public static final String ENCODING = "encoding";
     // not must, default no compress
@@ -31,6 +33,12 @@ public class Key {
     public static final String HAVE_KERBEROS = "haveKerberos";
     public static final String KERBEROS_KEYTAB_FILE_PATH = "kerberosKeytabFilePath";
     public static final String KERBEROS_PRINCIPAL = "kerberosPrincipal";
-    // hadoop config
+
+    public static final String REGEXP_REPLACE = "regexpReplace";
+    public static final String BEFORE = "before";
+    public static final String AFTER = "after";
+
+
     public static final String HADOOP_CONFIG = "hadoopConfig";
+
 }

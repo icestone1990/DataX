@@ -29,6 +29,7 @@ public class HdfsWriter extends Writer {
         private List<Configuration> columns;
         private String writeMode;
         private String fieldDelimiter;
+        private String lineDelimiter;
         private String compress;
         private String encoding;
         private HashSet<String> tmpFiles = new HashSet<String>();//临时文件全路径
@@ -81,23 +82,23 @@ public class HdfsWriter extends Writer {
             //writeMode check
             this.writeMode = this.writerSliceConfig.getNecessaryValue(Key.WRITE_MODE, HdfsWriterErrorCode.REQUIRED_VALUE);
             writeMode = writeMode.toLowerCase().trim();
-            Set<String> supportedWriteModes = Sets.newHashSet("append", "nonconflict");
+            Set<String> supportedWriteModes = Sets.newHashSet("append", "nonconflict", "truncate");
             if (!supportedWriteModes.contains(writeMode)) {
                 throw DataXException.asDataXException(HdfsWriterErrorCode.ILLEGAL_VALUE,
-                        String.format("仅支持append, nonConflict两种模式, 不支持您配置的 writeMode 模式 : [%s]",
+                        String.format("仅支持append, nonConflict, truncate两种模式, 不支持您配置的 writeMode 模式 : [%s]",
                                 writeMode));
             }
             this.writerSliceConfig.set(Key.WRITE_MODE, writeMode);
+
             //fieldDelimiter check
-            this.fieldDelimiter = this.writerSliceConfig.getString(Key.FIELD_DELIMITER,null);
-            if(null == fieldDelimiter){
-                throw DataXException.asDataXException(HdfsWriterErrorCode.REQUIRED_VALUE,
-                        String.format("您提供配置文件有误，[%s]是必填参数.", Key.FIELD_DELIMITER));
-            }else if(1 != fieldDelimiter.length()){
-                // warn: if have, length must be one
-                throw DataXException.asDataXException(HdfsWriterErrorCode.ILLEGAL_VALUE,
-                        String.format("仅仅支持单字符切分, 您配置的切分为 : [%s]", fieldDelimiter));
-            }
+            this.fieldDelimiter = this.writerSliceConfig.getString(Key.FIELD_DELIMITER);
+            LOG.info(String.format("您配置的字段间分割符为:[%s]", fieldDelimiter));
+
+            //lineDelimiter check
+            this.lineDelimiter = this.writerSliceConfig.getString(Key.LINE_DELIMITER);
+            LOG.info(String.format("您配置的行间分割符为:[%s]", lineDelimiter));
+
+
             //compress check
             this.compress  = this.writerSliceConfig.getString(Key.COMPRESS,null);
             if(fileType.equalsIgnoreCase("TEXT")){
@@ -155,19 +156,16 @@ public class HdfsWriter extends Writer {
                                     path));
                 }
                 //根据writeMode对目录下文件进行处理
-                Path[] existFilePaths = hdfsHelper.hdfsDirList(path,fileName);
+                Path[] existFilePaths = hdfsHelper.hdfsDirList(path, fileName);
                 boolean isExistFile = false;
                 if(existFilePaths.length > 0){
                     isExistFile = true;
                 }
-                /**
-                 if ("truncate".equals(writeMode) && isExistFile ) {
-                 LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 下面以 [%s] 开头的内容",
-                 path, fileName));
-                 hdfsHelper.deleteFiles(existFilePaths);
-                 } else
-                 */
-                if ("append".equalsIgnoreCase(writeMode)) {
+                if ("truncate".equals(writeMode) && isExistFile ) {
+                    LOG.info(String.format("由于您配置了writeMode truncate, 开始清理 [%s] 下面以 [%s] 开头的内容",
+                            path, fileName));
+                    hdfsHelper.deleteFiles(existFilePaths);
+                } else if ("append".equalsIgnoreCase(writeMode)) {
                     LOG.info(String.format("由于您配置了writeMode append, 写入前不做清理工作, [%s] 目录下写入相应文件名前缀  [%s] 的文件",
                             path, fileName));
                 } else if ("nonconflict".equalsIgnoreCase(writeMode) && isExistFile) {

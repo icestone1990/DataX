@@ -25,6 +25,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -281,16 +282,19 @@ public  class HdfsHelper {
      */
     public void textFileStartWrite(RecordReceiver lineReceiver, Configuration config, String fileName,
                                    TaskPluginCollector taskPluginCollector){
-        char fieldDelimiter = config.getChar(Key.FIELD_DELIMITER);
-        List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
+        String fieldDelimiter = config.getString(Key.FIELD_DELIMITER,"\t");
+        String lineDelimiter = config.getString(Key.LINE_DELIMITER,"\n");
         String compress = config.getString(Key.COMPRESS,null);
+        String nullFormat = config.getString(Key.NULL_FORMAT,"\\N");
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmm");
         String attempt = "attempt_"+dateFormat.format(new Date())+"_0001_m_000000_0";
         Path outputPath = new Path(fileName);
         //todo 需要进一步确定TASK_ATTEMPT_ID
         conf.set(JobContext.TASK_ATTEMPT_ID, attempt);
-        FileOutputFormat outFormat = new TextOutputFormat();
+        conf.set("textinputformat.record.delimiter", lineDelimiter);
+
+        FileOutputFormat outFormat = new TextOutputFormatDelimiter();
         outFormat.setOutputPath(conf, outputPath);
         outFormat.setWorkOutputPath(conf, outputPath);
         if(null != compress) {
@@ -303,7 +307,7 @@ public  class HdfsHelper {
             RecordWriter writer = outFormat.getRecordWriter(fileSystem, conf, outputPath.toString(), Reporter.NULL);
             Record record = null;
             while ((record = lineReceiver.getFromReader()) != null) {
-                MutablePair<Text, Boolean> transportResult = transportOneRecord(record, fieldDelimiter, columns, taskPluginCollector);
+                MutablePair<Text, Boolean> transportResult = transportOneRecord(record, fieldDelimiter, nullFormat, config, taskPluginCollector);
                 if (!transportResult.getRight()) {
                     writer.write(NullWritable.get(),transportResult.getLeft());
                 }
@@ -319,8 +323,8 @@ public  class HdfsHelper {
     }
 
     public static MutablePair<Text, Boolean> transportOneRecord(
-            Record record, char fieldDelimiter, List<Configuration> columnsConfiguration, TaskPluginCollector taskPluginCollector) {
-        MutablePair<List<Object>, Boolean> transportResultList =  transportOneRecord(record,columnsConfiguration,taskPluginCollector);
+            Record record, String fieldDelimiter, String nullFormat, Configuration config, TaskPluginCollector taskPluginCollector) {
+        MutablePair<List<Object>, Boolean> transportResultList =  transportOneRecord(record, nullFormat, config ,taskPluginCollector);
         //保存<转换后的数据,是否是脏数据>
         MutablePair<Text, Boolean> transportResult = new MutablePair<Text, Boolean>();
         transportResult.setRight(false);
@@ -363,6 +367,7 @@ public  class HdfsHelper {
                                   TaskPluginCollector taskPluginCollector){
         List<Configuration>  columns = config.getListConfiguration(Key.COLUMN);
         String compress = config.getString(Key.COMPRESS, null);
+        String nullFormat = config.getString(Key.NULL_FORMAT);
         List<String> columnNames = getColumnNames(columns);
         List<ObjectInspector> columnTypeInspectors = getColumnTypeInspectors(columns);
         StructObjectInspector inspector = (StructObjectInspector)ObjectInspectorFactory
@@ -381,7 +386,7 @@ public  class HdfsHelper {
             RecordWriter writer = outFormat.getRecordWriter(fileSystem, conf, fileName, Reporter.NULL);
             Record record = null;
             while ((record = lineReceiver.getFromReader()) != null) {
-                MutablePair<List<Object>, Boolean> transportResult =  transportOneRecord(record,columns,taskPluginCollector);
+                MutablePair<List<Object>, Boolean> transportResult =  transportOneRecord(record,nullFormat,config,taskPluginCollector);
                 if (!transportResult.getRight()) {
                     writer.write(NullWritable.get(), orcSerde.serialize(transportResult.getLeft(), inspector));
                 }
@@ -447,6 +452,9 @@ public  class HdfsHelper {
                 case BOOLEAN:
                     objectInspector = ObjectInspectorFactory.getReflectionObjectInspector(Boolean.class, ObjectInspectorFactory.ObjectInspectorOptions.JAVA);
                     break;
+                case DECIMAL:
+                    objectInspector = ObjectInspectorFactory.getReflectionObjectInspector(BigDecimal.class, ObjectInspectorFactory.ObjectInspectorOptions.JAVA);
+                    break;
                 default:
                     throw DataXException
                             .asDataXException(
@@ -478,8 +486,14 @@ public  class HdfsHelper {
     }
 
     public static MutablePair<List<Object>, Boolean> transportOneRecord(
-            Record record,List<Configuration> columnsConfiguration,
+            Record record,String nullFormat,Configuration config,
             TaskPluginCollector taskPluginCollector){
+        List<Configuration>  columnsConfiguration = config.getListConfiguration(Key.COLUMN);
+        List<Configuration>  regexpReplaceConfiguration = config.getListConfiguration(Key.REGEXP_REPLACE);
+        Boolean needReplace = false;
+        if (regexpReplaceConfiguration != null && regexpReplaceConfiguration.size() > 0){
+            needReplace = ! needReplace;
+        }
 
         MutablePair<List<Object>, Boolean> transportResult = new MutablePair<List<Object>, Boolean>();
         transportResult.setRight(false);
@@ -492,6 +506,7 @@ public  class HdfsHelper {
                 //todo as method
                 if (null != column.getRawData()) {
                     String rowData = column.getRawData().toString();
+                    String data;
                     SupportHiveDataType columnType = SupportHiveDataType.valueOf(
                             columnsConfiguration.get(i).getString(Key.TYPE).toUpperCase());
                     //根据writer端类型配置做类型转换
@@ -518,13 +533,31 @@ public  class HdfsHelper {
                             case STRING:
                             case VARCHAR:
                             case CHAR:
-                                recordList.add(column.asString());
+                                data = column.asString();
+                                if(needReplace){
+                                    for (Configuration regexpConfig:regexpReplaceConfiguration){
+                                        try {
+                                            data = data.replaceAll(regexpConfig.getString(Key.BEFORE), regexpConfig.getString(Key.AFTER));
+                                        } catch (Exception e){
+                                            throw DataXException
+                                                    .asDataXException(
+                                                            HdfsWriterErrorCode.REGEXP_ERROR,
+                                                            String.format(
+                                                                    "您的配置文件中的正则替换配置信息有误",
+                                                                    regexpConfig.getString(Key.BEFORE),
+                                                                    regexpConfig.getString(Key.AFTER)));
+                                        }
+                                    }
+                                }
+                                recordList.add(data);
                                 break;
                             case BOOLEAN:
                                 recordList.add(column.asBoolean());
                                 break;
                             case DATE:
                                 recordList.add(new java.sql.Date(column.asDate().getTime()));
+                                break;
+                            case DECIMAL:
                                 break;
                             case TIMESTAMP:
                                 recordList.add(new java.sql.Timestamp(column.asDate().getTime()));
@@ -549,7 +582,7 @@ public  class HdfsHelper {
                     }
                 }else {
                     // warn: it's all ok if nullFormat is null
-                    recordList.add(null);
+                    recordList.add(nullFormat);
                 }
             }
         }

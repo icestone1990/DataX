@@ -167,6 +167,7 @@ public class HdfsReader extends Reader {
         public void prepare() {
             LOG.info("prepare(), start to getAllFiles...");
             this.sourceFiles = dfsUtil.getAllFiles(path, specifiedFileType);
+
             LOG.info(String.format("您即将读取的文件数为: [%s], 列表为: [%s]",
                     this.sourceFiles.size(),
                     StringUtils.join(this.sourceFiles, ",")));
@@ -177,15 +178,18 @@ public class HdfsReader extends Reader {
 
             LOG.info("split() begin...");
             List<Configuration> readerSplitConfigs = new ArrayList<Configuration>();
+            // 一个文件处理成一个task
             // warn:每个slice拖且仅拖一个文件,
-            // int splitNumber = adviceNumber;
-            int splitNumber = this.sourceFiles.size();
+             int splitNumber = adviceNumber;
+//            int splitNumber = this.sourceFiles.size();
             if (0 == splitNumber) {
                 throw DataXException.asDataXException(HdfsReaderErrorCode.EMPTY_DIR_EXCEPTION,
                         String.format("未能找到待读取的文件,请确认您的配置项path: %s", this.readerOriginConfig.getString(Key.PATH)));
             }
 
-            List<List<String>> splitedSourceFiles = this.splitSourceFiles(new ArrayList<String>(this.sourceFiles), splitNumber);
+//            //sourceFiles 是实际存在的文件列表，将根据用户设置的切分数量进行切分, Spark的partion的概念
+//            List<List<String>> splitedSourceFiles = this.splitSourceFiles(new ArrayList<String>(this.sourceFiles), splitNumber);
+            List<List<String>> splitedSourceFiles = dfsUtil.splitSourceFiles(new ArrayList<String>(this.sourceFiles), adviceNumber);
             for (List<String> files : splitedSourceFiles) {
                 Configuration splitedConfig = this.readerOriginConfig.clone();
                 splitedConfig.set(Constant.SOURCE_FILES, files);
@@ -195,6 +199,9 @@ public class HdfsReader extends Reader {
             return readerSplitConfigs;
         }
 
+        private <T> List<List<T>> splitSourceFilesHDFS(final List<T> souceList, int adviceNumner){
+            return null;
+        }
 
         private <T> List<List<T>> splitSourceFiles(final List<T> sourceList, int adviceNumber) {
             List<List<T>> splitedList = new ArrayList<List<T>>();
@@ -258,27 +265,24 @@ public class HdfsReader extends Reader {
             for (String sourceFile : this.sourceFiles) {
                 LOG.info(String.format("reading file : [%s]", sourceFile));
 
-                if(specifiedFileType.equalsIgnoreCase(Constant.TEXT)
-                        || specifiedFileType.equalsIgnoreCase(Constant.CSV)) {
-
-                    InputStream inputStream = dfsUtil.getInputStream(sourceFile);
-                    UnstructuredStorageReaderUtil.readFromStream(inputStream, sourceFile, this.taskConfig,
-                            recordSender, this.getTaskPluginCollector());
-                }else if(specifiedFileType.equalsIgnoreCase(Constant.ORC)){
-
-                    dfsUtil.orcFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
-                }else if(specifiedFileType.equalsIgnoreCase(Constant.SEQ)){
-
-                    dfsUtil.sequenceFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
-                }else if(specifiedFileType.equalsIgnoreCase(Constant.RC)){
-
-                    dfsUtil.rcFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
-                }else {
-
-                    String message = "HdfsReader插件目前支持ORC, TEXT, CSV, SEQUENCE, RC五种格式的文件," +
-                            "请将fileType选项的值配置为ORC, TEXT, CSV, SEQUENCE 或者 RC";
-                    throw DataXException.asDataXException(HdfsReaderErrorCode.FILE_TYPE_UNSUPPORT, message);
-                }
+                dfsUtil.fileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
+//                if(specifiedFileType.equalsIgnoreCase(Constant.TEXT)
+//                        || specifiedFileType.equalsIgnoreCase(Constant.CSV)) {
+//                    dfsUtil.textFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
+//                }else if(specifiedFileType.equalsIgnoreCase(Constant.ORC)){
+//
+//                    dfsUtil.orcFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
+//                }else if(specifiedFileType.equalsIgnoreCase(Constant.SEQ)){
+//
+//                    dfsUtil.sequenceFileStartRead(sourceFile, this.taskConfig, recordSender, this.getTaskPluginCollector());
+//                }else if(specifiedFileType.equalsIgnoreCase(Constant.RC)){
+//
+//                }else {
+//
+//                    String message = "HdfsReader插件目前支持ORC, TEXT, CSV, SEQUENCE, RC五种格式的文件," +
+//                            "请将fileType选项的值配置为ORC, TEXT, CSV, SEQUENCE 或者 RC";
+//                    throw DataXException.asDataXException(HdfsReaderErrorCode.FILE_TYPE_UNSUPPORT, message);
+//                }
 
                 if(recordSender != null){
                     recordSender.flush();

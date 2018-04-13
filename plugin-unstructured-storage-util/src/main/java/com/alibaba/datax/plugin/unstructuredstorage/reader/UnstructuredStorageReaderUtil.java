@@ -15,6 +15,7 @@ import io.airlift.compress.snappy.SnappyFramedInputStream;
 import org.anarres.lzo.*;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+import org.apache.commons.compress.compressors.deflate.DeflateCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.IOUtils;
@@ -121,7 +122,11 @@ public class UnstructuredStorageReaderUtil {
 						encoding), bufferSize);
 			} else {
 				// TODO compress
-				if ("lzo_deflate".equalsIgnoreCase(compress)) {
+				if("deflate".equalsIgnoreCase(compress)) {
+					CompressorInputStream compressorInputStream = new DeflateCompressorInputStream(inputStream);
+					reader = new BufferedReader(new InputStreamReader(
+							compressorInputStream, encoding), bufferSize);
+				}else if ("lzo_deflate".equalsIgnoreCase(compress)) {
 					LzoInputStream lzoInputStream = new LzoInputStream(
 							inputStream, new LzoDecompressor1x_safe());
 					reader = new BufferedReader(new InputStreamReader(
@@ -242,22 +247,15 @@ public class UnstructuredStorageReaderUtil {
 		String encoding = readerSliceConfig.getString(Key.ENCODING,
 				Constant.DEFAULT_ENCODING);
 		Character fieldDelimiter = null;
-		String delimiterInStr = readerSliceConfig
-				.getString(Key.FIELD_DELIMITER);
-		if (null != delimiterInStr && 1 != delimiterInStr.length()) {
-			throw DataXException.asDataXException(
-					UnstructuredStorageReaderErrorCode.ILLEGAL_VALUE,
-					String.format("仅仅支持单字符切分, 您配置的切分为 : [%s]", delimiterInStr));
-		}
-		if (null == delimiterInStr) {
-			LOG.warn(String.format("您没有配置列分隔符, 使用默认值[%s]",
-					Constant.DEFAULT_FIELD_DELIMITER));
-		}
 
 		// warn: default value ',', fieldDelimiter could be \n(lineDelimiter)
 		// for no fieldDelimiter
 		fieldDelimiter = readerSliceConfig.getChar(Key.FIELD_DELIMITER,
 				Constant.DEFAULT_FIELD_DELIMITER);
+
+		LOG.warn(String.format("您配置的列分隔符：[%s]",
+				fieldDelimiter));
+
 		Boolean skipHeader = readerSliceConfig.getBool(Key.SKIP_HEADER,
 				Constant.DEFAULT_SKIP_HEADER);
 		// warn: no default value '\N'
@@ -266,8 +264,6 @@ public class UnstructuredStorageReaderUtil {
 		// warn: Configuration -> List<ColumnEntry> for performance
 		// List<Configuration> column = readerSliceConfig
 		// .getListConfiguration(Key.COLUMN);
-		List<ColumnEntry> column = UnstructuredStorageReaderUtil
-				.getListColumnEntry(readerSliceConfig, Key.COLUMN);
 		CsvReader csvReader  = null;
 
 		// every line logic
@@ -287,7 +283,7 @@ public class UnstructuredStorageReaderUtil {
 			while ((parseRows = UnstructuredStorageReaderUtil
 					.splitBufferedReader(csvReader)) != null) {
 				UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
-						column, parseRows, nullFormat, taskPluginCollector);
+						readerSliceConfig, parseRows, nullFormat, taskPluginCollector);
 			}
 		} catch (UnsupportedEncodingException uee) {
 			throw DataXException
@@ -316,33 +312,29 @@ public class UnstructuredStorageReaderUtil {
 											Configuration configuration,
 											TaskPluginCollector taskPluginCollector,
 											String line){
-		List<ColumnEntry> column = UnstructuredStorageReaderUtil
-				.getListColumnEntry(configuration, Key.COLUMN);
 		// 注意: nullFormat 没有默认值
 		String nullFormat = configuration.getString(Key.NULL_FORMAT);
-		String delimiterInStr = configuration.getString(Key.FIELD_DELIMITER);
-		if (null != delimiterInStr && 1 != delimiterInStr.length()) {
-			throw DataXException.asDataXException(
-					UnstructuredStorageReaderErrorCode.ILLEGAL_VALUE,
-					String.format("仅仅支持单字符切分, 您配置的切分为 : [%s]", delimiterInStr));
-		}
-		if (null == delimiterInStr) {
-			LOG.warn(String.format("您没有配置列分隔符, 使用默认值[%s]",
-					Constant.DEFAULT_FIELD_DELIMITER));
-		}
-		// warn: default value ',', fieldDelimiter could be \n(lineDelimiter)
-		// for no fieldDelimiter
-		Character fieldDelimiter = configuration.getChar(Key.FIELD_DELIMITER,
-				Constant.DEFAULT_FIELD_DELIMITER);
+
+		// 默认字段间分隔符为"\t"
+		String fieldDelimiter = configuration.getString(Key.FIELD_DELIMITER,"\t");
 
 		String[] sourceLine = StringUtils.split(line, fieldDelimiter);
 
-		return transportOneRecord(recordSender, column, sourceLine, nullFormat, taskPluginCollector);
+		return transportOneRecord(recordSender, configuration, sourceLine, nullFormat, taskPluginCollector);
 	}
 
 	public static Record transportOneRecord(RecordSender recordSender,
-											List<ColumnEntry> columnConfigs, String[] sourceLine,
+											Configuration readerSliceConfig, String[] sourceLine,
 											String nullFormat, TaskPluginCollector taskPluginCollector) {
+		List<ColumnEntry> columnConfigs = UnstructuredStorageReaderUtil
+				.getListColumnEntry(readerSliceConfig, Key.COLUMN);
+
+		//regexp
+		List<Configuration>  regexpReplaceConfiguration = readerSliceConfig.getListConfiguration(Key.REGEXP_REPLACE);
+		Boolean needReplace = false;
+		if (regexpReplaceConfiguration != null && regexpReplaceConfiguration.size() > 0){
+			needReplace = ! needReplace;
+		}
 		Record record = recordSender.createRecord();
 		Column columnGenerated = null;
 
@@ -532,8 +524,8 @@ public class UnstructuredStorageReaderUtil {
 		// encoding check
 		String encoding = readerConfiguration
 				.getString(
-						com.alibaba.datax.plugin.unstructuredstorage.reader.Key.ENCODING,
-						com.alibaba.datax.plugin.unstructuredstorage.reader.Constant.DEFAULT_ENCODING);
+						Key.ENCODING,
+						Constant.DEFAULT_ENCODING);
 		try {
 			encoding = encoding.trim();
 			readerConfiguration.set(Key.ENCODING, encoding);
@@ -549,32 +541,32 @@ public class UnstructuredStorageReaderUtil {
 
 	public static void validateCompress(Configuration readerConfiguration) {
 		String compress =readerConfiguration
-				.getUnnecessaryValue(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COMPRESS,null,null);
+				.getUnnecessaryValue(Key.COMPRESS,null,null);
 		if(StringUtils.isNotBlank(compress)){
 			compress = compress.toLowerCase().trim();
 			boolean compressTag = "gzip".equals(compress) || "bzip2".equals(compress) || "zip".equals(compress)
 					|| "lzo".equals(compress) || "lzo_deflate".equals(compress) || "hadoop-snappy".equals(compress)
-					|| "framing-snappy".equals(compress);
+					|| "framing-snappy".equals(compress) || "deflate".equals(compress);
 			if (!compressTag) {
 				throw DataXException.asDataXException(UnstructuredStorageReaderErrorCode.ILLEGAL_VALUE,
-						String.format("仅支持 gzip, bzip2, zip, lzo, lzo_deflate, hadoop-snappy, framing-snappy " +
+						String.format("仅支持 gzip, bzip2, zip, lzo, lzo_deflate, deflate, hadoop-snappy, framing-snappy " +
 								"文件压缩格式, 不支持您配置的文件压缩格式: [%s]", compress));
 			}
 		}else{
 			// 用户可能配置的是 compress:"",空字符串,需要将compress设置为null
 			compress = null;
 		}
-		readerConfiguration.set(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COMPRESS, compress);
+		readerConfiguration.set(Key.COMPRESS, compress);
 
 	}
 
 	public static void validateFieldDelimiter(Configuration readerConfiguration) {
 		//fieldDelimiter check
-		String delimiterInStr = readerConfiguration.getString(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.FIELD_DELIMITER,null);
+		String delimiterInStr = readerConfiguration.getString(Key.FIELD_DELIMITER,null);
 		if(null == delimiterInStr){
 			throw DataXException.asDataXException(UnstructuredStorageReaderErrorCode.REQUIRED_VALUE,
 					String.format("您提供配置文件有误，[%s]是必填参数.",
-							com.alibaba.datax.plugin.unstructuredstorage.reader.Key.FIELD_DELIMITER));
+							Key.FIELD_DELIMITER));
 		}else if(1 != delimiterInStr.length()){
 			// warn: if have, length must be one
 			throw DataXException.asDataXException(UnstructuredStorageReaderErrorCode.ILLEGAL_VALUE,
@@ -586,7 +578,7 @@ public class UnstructuredStorageReaderUtil {
 		// column: 1. index type 2.value type 3.when type is Date, may have
 		// format
 		List<Configuration> columns = readerConfiguration
-				.getListConfiguration(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
+				.getListConfiguration(Key.COLUMN);
 		if (null == columns || columns.size() == 0) {
 			throw DataXException.asDataXException(UnstructuredStorageReaderErrorCode.REQUIRED_VALUE, "您需要指定 columns");
 		}
@@ -594,19 +586,19 @@ public class UnstructuredStorageReaderUtil {
 		if (null != columns && 1 == columns.size()) {
 			String columnsInStr = columns.get(0).toString();
 			if ("\"*\"".equals(columnsInStr) || "'*'".equals(columnsInStr)) {
-				readerConfiguration.set(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN, null);
+				readerConfiguration.set(Key.COLUMN, null);
 				columns = null;
 			}
 		}
 
 		if (null != columns && columns.size() != 0) {
 			for (Configuration eachColumnConf : columns) {
-				eachColumnConf.getNecessaryValue(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.TYPE,
+				eachColumnConf.getNecessaryValue(Key.TYPE,
 						UnstructuredStorageReaderErrorCode.REQUIRED_VALUE);
 				Integer columnIndex = eachColumnConf
-						.getInt(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.INDEX);
+						.getInt(Key.INDEX);
 				String columnValue = eachColumnConf
-						.getString(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.VALUE);
+						.getString(Key.VALUE);
 
 				if (null == columnIndex && null == columnValue) {
 					throw DataXException.asDataXException(UnstructuredStorageReaderErrorCode.NO_INDEX_VALUE,

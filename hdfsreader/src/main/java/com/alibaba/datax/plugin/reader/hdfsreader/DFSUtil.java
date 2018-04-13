@@ -16,6 +16,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.RCFile;
+import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileRecordReader;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
@@ -40,6 +41,7 @@ import java.util.*;
 
 /**
  * Created by mingya.wmy on 2015/8/12.
+ *
  */
 public class DFSUtil {
     private static final Logger LOG = LoggerFactory.getLogger(HdfsReader.Job.class);
@@ -47,8 +49,8 @@ public class DFSUtil {
     private org.apache.hadoop.conf.Configuration hadoopConf = null;
     private String specifiedFileType = null;
     private Boolean haveKerberos = false;
-    private String kerberosKeytabFilePath;
-    private String kerberosPrincipal;
+    private String  kerberosKeytabFilePath;
+    private String  kerberosPrincipal;
 
 
     private static final int DIRECTORY_SIZE_GUESS = 16 * 1024;
@@ -57,7 +59,7 @@ public class DFSUtil {
     public static final String HADOOP_SECURITY_AUTHENTICATION_KEY = "hadoop.security.authentication";
 
 
-    public DFSUtil(Configuration taskConfig) {
+    public DFSUtil(Configuration taskConfig){
         hadoopConf = new org.apache.hadoop.conf.Configuration();
         //io.file.buffer.size 性能参数
         //http://blog.csdn.net/yangjl38/article/details/7583374
@@ -69,11 +71,20 @@ public class DFSUtil {
                 hadoopConf.set(each, hadoopSiteParamsAsJsonObject.getString(each));
             }
         }
+
+        String fieldDelimiter = taskConfig.getString(Key.FIELD_DELIMITER,"\t");
+        LOG.info(String.format("您配置的字段间分割符为:[%s]", fieldDelimiter));
+
+        String lineDelimiter = taskConfig.getString(Key.LINE_DELIMITER,"\n");
+        LOG.info(String.format("您配置的行间分割符为:[%s]", lineDelimiter));
+
+        //lineDelimiter setting
+        hadoopConf.set("textinputformat.record.delimiter", lineDelimiter);
         hadoopConf.set(HDFS_DEFAULTFS_KEY, taskConfig.getString(Key.DEFAULT_FS));
 
         //是否有Kerberos认证
         this.haveKerberos = taskConfig.getBool(Key.HAVE_KERBEROS, false);
-        if (haveKerberos) {
+        if(haveKerberos){
             this.kerberosKeytabFilePath = taskConfig.getString(Key.KERBEROS_KEYTAB_FILE_PATH);
             this.kerberosPrincipal = taskConfig.getString(Key.KERBEROS_PRINCIPAL);
             this.hadoopConf.set(HADOOP_SECURITY_AUTHENTICATION_KEY, "kerberos");
@@ -83,8 +94,8 @@ public class DFSUtil {
         LOG.info(String.format("hadoopConfig details:%s", JSON.toJSONString(this.hadoopConf)));
     }
 
-    private void kerberosAuthentication(String kerberosPrincipal, String kerberosKeytabFilePath) {
-        if (haveKerberos && StringUtils.isNotBlank(this.kerberosPrincipal) && StringUtils.isNotBlank(this.kerberosKeytabFilePath)) {
+    private void kerberosAuthentication(String kerberosPrincipal, String kerberosKeytabFilePath){
+        if(haveKerberos && StringUtils.isNotBlank(this.kerberosPrincipal) && StringUtils.isNotBlank(this.kerberosKeytabFilePath)){
             UserGroupInformation.setConfiguration(this.hadoopConf);
             try {
                 UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabFilePath);
@@ -98,17 +109,16 @@ public class DFSUtil {
 
     /**
      * 获取指定路径列表下符合条件的所有文件的绝对路径
-     *
-     * @param srcPaths          路径列表
+     * @param  srcPaths 路径列表
      * @param specifiedFileType 指定文件类型
      */
-    public HashSet<String> getAllFiles(List<String> srcPaths, String specifiedFileType) {
+    public HashSet<String> getAllFiles(List<String> srcPaths, String specifiedFileType){
 
         this.specifiedFileType = specifiedFileType;
 
         if (!srcPaths.isEmpty()) {
             for (String eachPath : srcPaths) {
-                LOG.info(String.format("get HDFS all files in path = [%s]", eachPath));
+                LOG.info(String.format("get HDFS all files in path = [%s]",eachPath));
                 getHDFSAllFiles(eachPath);
             }
         }
@@ -117,33 +127,29 @@ public class DFSUtil {
 
     private HashSet<String> sourceHDFSAllFilesList = new HashSet<String>();
 
-    public HashSet<String> getHDFSAllFiles(String hdfsPath) {
+    public HashSet<String> getHDFSAllFiles(String hdfsPath){
 
         try {
             FileSystem hdfs = FileSystem.get(hadoopConf);
             //判断hdfsPath是否包含正则符号
-            if (hdfsPath.contains("*") || hdfsPath.contains("?")) {
+            if(hdfsPath.contains("*") || hdfsPath.contains("?")){
                 Path path = new Path(hdfsPath);
                 FileStatus stats[] = hdfs.globStatus(path);
-                for (FileStatus f : stats) {
-                    if (f.isFile()) {
-                        if (f.getLen() == 0) {
-                            String message = String.format("文件[%s]长度为0，将会跳过不作处理！", hdfsPath);
-                            LOG.warn(message);
-                        } else {
-                            addSourceFileByType(f.getPath().toString());
-                        }
-                    } else if (f.isDirectory()) {
+
+                for(FileStatus f : stats){
+                    if(f.isFile() && f.getLen() != 0){
+                        addSourceFileByType(f.getPath().toString());
+                    } else if(f.isDirectory()){
                         getHDFSAllFilesNORegex(f.getPath().toString(), hdfs);
                     }
                 }
-            } else {
+            } else{
                 getHDFSAllFilesNORegex(hdfsPath, hdfs);
             }
 
             return sourceHDFSAllFilesList;
 
-        } catch (IOException e) {
+        }catch (IOException e){
             String message = String.format("无法读取路径[%s]下的所有文件,请确认您的配置项fs.defaultFS, path的值是否正确，" +
                     "是否有读写权限，网络是否已断开！", hdfsPath);
             LOG.error(message);
@@ -151,7 +157,7 @@ public class DFSUtil {
         }
     }
 
-    private HashSet<String> getHDFSAllFilesNORegex(String path, FileSystem hdfs) throws IOException {
+    private HashSet<String> getHDFSAllFilesNORegex(String path, FileSystem hdfs) throws IOException{
 
         // 获取要读取的文件的根目录
         Path listFiles = new Path(path);
@@ -164,12 +170,12 @@ public class DFSUtil {
         for (FileStatus f : stats) {
             // 判断是不是目录，如果是目录，递归调用
             if (f.isDirectory()) {
-                LOG.info(String.format("[%s] 是目录, 递归获取该目录下的文件", f.getPath().toString()));
-                getHDFSAllFilesNORegex(f.getPath().toString(), hdfs);
-            } else if (f.isFile()) {
+                LOG.info(String.format("[%s] 是目录, 递归获取该目录下的文件",f.getPath().toString()));
+                getHDFSAllFilesNORegex(f.getPath().toString(),hdfs);
+            } else if(f.isFile() && f.getLen() != 0){
 
                 addSourceFileByType(f.getPath().toString());
-            } else {
+            } else{
                 String message = String.format("该路径[%s]文件类型既不是目录也不是文件，插件自动忽略。",
                         f.getPath().toString());
                 LOG.info(message);
@@ -179,14 +185,14 @@ public class DFSUtil {
     }
 
     // 根据用户指定的文件类型，将指定的文件类型的路径加入sourceHDFSAllFilesList
-    private void addSourceFileByType(String filePath) {
+    private void addSourceFileByType(String filePath){
         // 检查file的类型和用户配置的fileType类型是否一致
         boolean isMatchedFileType = checkHdfsFileType(filePath, this.specifiedFileType);
 
-        if (isMatchedFileType) {
-            LOG.info(String.format("[%s]是[%s]类型的文件, 将该文件加入source files列表", filePath, this.specifiedFileType));
+        if(isMatchedFileType){
+            LOG.info(String.format("[%s]是[%s]类型的文件, 将该文件加入source files列表",filePath, this.specifiedFileType));
             sourceHDFSAllFilesList.add(filePath);
-        } else {
+        } else{
             String message = String.format("文件[%s]的类型与用户配置的fileType类型不一致，" +
                             "请确认您配置的目录下面所有文件的类型均为[%s]"
                     , filePath, this.specifiedFileType);
@@ -196,24 +202,24 @@ public class DFSUtil {
         }
     }
 
-    public InputStream getInputStream(String filepath) {
+    public InputStream getInputStream(String filepath){
         InputStream inputStream;
         Path path = new Path(filepath);
-        try {
+        try{
             FileSystem fs = FileSystem.get(hadoopConf);
             //If the network disconnected, this method will retry 45 times
             //each time the retry interval for 20 seconds
             inputStream = fs.open(path);
             return inputStream;
-        } catch (IOException e) {
+        }catch (IOException e) {
             String message = String.format("读取文件 : [%s] 时出错,请确认文件：[%s]存在且配置的用户有权限读取", filepath, filepath);
             throw DataXException.asDataXException(HdfsReaderErrorCode.READ_FILE_ERROR, message, e);
         }
     }
 
     public void sequenceFileStartRead(String sourceSequenceFilePath, Configuration readerSliceConfig,
-                                      RecordSender recordSender, TaskPluginCollector taskPluginCollector) {
-        LOG.info(String.format("Start Read sequence file [%s].", sourceSequenceFilePath));
+                                      RecordSender recordSender, TaskPluginCollector taskPluginCollector){
+        LOG.info(String.format("Start Read sequence file [%s].",sourceSequenceFilePath));
 
         Path seqFilePath = new Path(sourceSequenceFilePath);
         SequenceFile.Reader reader = null;
@@ -224,28 +230,55 @@ public class DFSUtil {
             //获取key 与 value
             Writable key = (Writable) ReflectionUtils.newInstance(reader.getKeyClass(), this.hadoopConf);
             Text value = new Text();
-            while (reader.next(key, value)) {
-                if (StringUtils.isNotBlank(value.toString())) {
+            while(reader.next(key,value)){
+                if(StringUtils.isNotBlank(value.toString())){
                     UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
-                            readerSliceConfig, taskPluginCollector, value.toString());
+                            readerSliceConfig ,taskPluginCollector,value.toString());
                 }
             }
-        } catch (Exception e) {
-            String message = String.format("SequenceFile.Reader读取文件[%s]时出错", sourceSequenceFilePath);
+        }catch (Exception e) {
+            String message = String.format("SequenceFile.Reader读取文件[%s]时出错",sourceSequenceFilePath);
             LOG.error(message);
             throw DataXException.asDataXException(HdfsReaderErrorCode.READ_SEQUENCEFILE_ERROR, message, e);
-        } finally {
+        }finally{
             IOUtils.closeStream(reader);
             LOG.info("Finally, Close stream SequenceFile.Reader.");
         }
 
     }
 
+    public void textFileStartRead(String sourceTextFilePath, Configuration readerSliceConfig,
+                                  RecordSender recordSender, TaskPluginCollector taskPluginCollector) {
+
+        LOG.info(String.format("Start Read textfile [%s].", sourceTextFilePath));
+
+        JobConf conf = new JobConf(hadoopConf);
+        Path textPath = new Path(sourceTextFilePath);
+        TextInputFormat textInputFormat = new TextInputFormat();
+
+        textInputFormat.setInputPaths(conf, textPath);
+        textInputFormat.configure(conf);
+
+        try {
+            InputSplit[] split = textInputFormat.getSplits(conf,1);
+            RecordReader recordReader = textInputFormat.getRecordReader(split[0],conf,Reporter.NULL);
+
+            LongWritable key = new LongWritable();
+            Text value = new Text();
+            while (recordReader.next(key, value)) {
+                UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
+                        readerSliceConfig, taskPluginCollector, value.toString());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
     public void rcFileStartRead(String sourceRcFilePath, Configuration readerSliceConfig,
-                                RecordSender recordSender, TaskPluginCollector taskPluginCollector) {
-        LOG.info(String.format("Start Read rcfile [%s].", sourceRcFilePath));
-        List<ColumnEntry> column = UnstructuredStorageReaderUtil
-                .getListColumnEntry(readerSliceConfig, com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
+                                RecordSender recordSender, TaskPluginCollector taskPluginCollector){
+        LOG.info(String.format("Start Read rcfile [%s].",sourceRcFilePath));
         // warn: no default value '\N'
         String nullFormat = readerSliceConfig.getString(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.NULL_FORMAT);
 
@@ -269,29 +302,29 @@ public class DFSUtil {
                     sourceLine[i] = txt.toString();
                 }
                 UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
-                        column, sourceLine, nullFormat, taskPluginCollector);
+                        readerSliceConfig, sourceLine, nullFormat, taskPluginCollector);
             }
 
         } catch (IOException e) {
-            String message = String.format("读取文件[%s]时出错", sourceRcFilePath);
+            String message = String.format("读取文件[%s]时出错",sourceRcFilePath);
             LOG.error(message);
             throw DataXException.asDataXException(HdfsReaderErrorCode.READ_RCFILE_ERROR, message, e);
         } finally {
             try {
-                if (recordReader != null) {
+                if(recordReader !=null ) {
                     recordReader.close();
                     LOG.info("Finally, Close RCFileRecordReader.");
                 }
             } catch (IOException e) {
-                LOG.warn(String.format("finally: 关闭RCFileRecordReader失败, %s", e.getMessage()));
+                LOG.warn(String.format("finally: 关闭RCFileRecordReader失败, %s",e.getMessage()));
             }
         }
 
     }
 
     public void orcFileStartRead(String sourceOrcFilePath, Configuration readerSliceConfig,
-                                 RecordSender recordSender, TaskPluginCollector taskPluginCollector) {
-        LOG.info(String.format("Start Read orcfile [%s].", sourceOrcFilePath));
+                                 RecordSender recordSender, TaskPluginCollector taskPluginCollector){
+        LOG.info(String.format("Start Read orcfile [%s].",sourceOrcFilePath));
         List<ColumnEntry> column = UnstructuredStorageReaderUtil
                 .getListColumnEntry(readerSliceConfig, com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
         String nullFormat = readerSliceConfig.getString(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.NULL_FORMAT);
@@ -302,20 +335,20 @@ public class DFSUtil {
         // 判断是否读取所有列
         if (null == column || column.size() == 0) {
             int allColumnsCount = getAllColumnsCount(sourceOrcFilePath);
-            columnIndexMax = allColumnsCount - 1;
+            columnIndexMax = allColumnsCount-1;
             isReadAllColumns = true;
         } else {
             columnIndexMax = getMaxIndex(column);
         }
-        for (int i = 0; i <= columnIndexMax; i++) {
+        for(int i=0; i<=columnIndexMax; i++){
             allColumns.append("col");
             allColumnTypes.append("string");
-            if (i != columnIndexMax) {
+            if(i!=columnIndexMax){
                 allColumns.append(",");
                 allColumnTypes.append(":");
             }
         }
-        if (columnIndexMax >= 0) {
+        if(columnIndexMax>=0) {
             JobConf conf = new JobConf(hadoopConf);
             Path orcFilePath = new Path(sourceOrcFilePath);
             Properties p = new Properties();
@@ -331,6 +364,7 @@ public class DFSUtil {
                 //If the network disconnected, will retry 45 times, each time the retry interval for 20 seconds
                 //Each file as a split
                 //TODO multy threads
+                //
                 InputSplit[] splits = in.getSplits(conf, 1);
 
                 RecordReader reader = in.getRecordReader(splits[0], conf, Reporter.NULL);
@@ -343,15 +377,15 @@ public class DFSUtil {
                 while (reader.next(key, value)) {
                     recordFields = new ArrayList<Object>();
 
-                    for (int i = 0; i <= columnIndexMax; i++) {
+                    for(int i=0; i<=columnIndexMax; i++){
                         Object field = inspector.getStructFieldData(value, fields.get(i));
                         recordFields.add(field);
                     }
-                    transportOneRecord(column, recordFields, recordSender,
-                            taskPluginCollector, isReadAllColumns, nullFormat);
+                    transportOneRecord(readerSliceConfig, recordFields, recordSender,
+                            taskPluginCollector, isReadAllColumns,nullFormat);
                 }
                 reader.close();
-            } catch (Exception e) {
+            }catch (Exception e){
                 String message = String.format("从orcfile文件路径[%s]中读取数据发生异常，请联系系统管理员。"
                         , sourceOrcFilePath);
                 LOG.error(message);
@@ -363,22 +397,31 @@ public class DFSUtil {
         }
     }
 
-    private Record transportOneRecord(List<ColumnEntry> columnConfigs, List<Object> recordFields
-            , RecordSender recordSender, TaskPluginCollector taskPluginCollector, boolean isReadAllColumns, String nullFormat) {
+    private Record transportOneRecord(Configuration readerSliceConfig, List<Object> recordFields
+            , RecordSender recordSender, TaskPluginCollector taskPluginCollector, boolean isReadAllColumns, String nullFormat){
+        List<ColumnEntry> columnConfigs = UnstructuredStorageReaderUtil
+                .getListColumnEntry(readerSliceConfig, com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
+        //regexp
+        List<Configuration>  regexpReplaceConfiguration = readerSliceConfig.getListConfiguration(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.REGEXP_REPLACE);
+        Boolean needReplace = false;
+        if (regexpReplaceConfiguration != null && regexpReplaceConfiguration.size() > 0){
+            needReplace = ! needReplace;
+        }
         Record record = recordSender.createRecord();
-        Column columnGenerated;
+        Column columnGenerated ;
         try {
-            if (isReadAllColumns) {
+            if(isReadAllColumns){
                 // 读取所有列，创建都为String类型的column
-                for (Object recordField : recordFields) {
+                for(Object recordField :recordFields){
                     String columnValue = null;
-                    if (recordField != null) {
+                    if(recordField != null){
                         columnValue = recordField.toString();
                     }
                     columnGenerated = new StringColumn(columnValue);
                     record.addColumn(columnGenerated);
                 }
-            } else {
+            }
+            else {
                 for (ColumnEntry columnConfig : columnConfigs) {
                     String columnType = columnConfig.getType();
                     Integer columnIndex = columnConfig.getIndex();
@@ -432,7 +475,7 @@ public class DFSUtil {
                         case DATE:
                             try {
                                 if (columnValue == null) {
-                                    columnGenerated = new DateColumn((Date) null);
+                                    columnGenerated = new DateColumn((Date)null);
                                 } else {
                                     String formatString = columnConfig.getFormat();
                                     if (StringUtils.isNotBlank(formatString)) {
@@ -485,8 +528,8 @@ public class DFSUtil {
         return record;
     }
 
-    private int getAllColumnsCount(String filePath) {
-        int columnsCount;
+    private int getAllColumnsCount(String filePath){
+        int columnsCount ;
         final String colFinal = "_col";
         Path path = new Path(filePath);
         try {
@@ -495,13 +538,13 @@ public class DFSUtil {
             columnsCount = (type_struct.length() - type_struct.replace(colFinal, "").length())
                     / colFinal.length();
             return columnsCount;
-        } catch (IOException e) {
+        }catch (IOException e){
             String message = "读取orcfile column列数失败，请联系系统管理员";
             throw DataXException.asDataXException(HdfsReaderErrorCode.READ_FILE_ERROR, message);
         }
     }
 
-    private int getMaxIndex(List<ColumnEntry> columnConfigs) {
+    private int getMaxIndex(List<ColumnEntry> columnConfigs){
         int maxIndex = -1;
         for (ColumnEntry columnConfig : columnConfigs) {
             Integer columnIndex = columnConfig.getIndex();
@@ -521,7 +564,7 @@ public class DFSUtil {
         STRING, LONG, BOOLEAN, DOUBLE, DATE,
     }
 
-    public boolean checkHdfsFileType(String filepath, String specifiedFileType) {
+    public boolean checkHdfsFileType(String filepath, String specifiedFileType){
 
         Path file = new Path(filepath);
 
@@ -529,36 +572,36 @@ public class DFSUtil {
             FileSystem fs = FileSystem.get(hadoopConf);
             FSDataInputStream in = fs.open(file);
 
-            if (StringUtils.equalsIgnoreCase(specifiedFileType, Constant.CSV)
-                    || StringUtils.equalsIgnoreCase(specifiedFileType, Constant.TEXT)) {
+            if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.CSV)
+                    || StringUtils.equalsIgnoreCase(specifiedFileType, Constant.TEXT)){
 
                 boolean isORC = isORCFile(file, fs, in);// 判断是否是 ORC File
-                if (isORC) {
+                if(isORC){
                     return false;
                 }
                 boolean isRC = isRCFile(filepath, in);// 判断是否是 RC File
-                if (isRC) {
+                if(isRC){
                     return false;
                 }
                 boolean isSEQ = isSequenceFile(filepath, in);// 判断是否是 Sequence File
-                if (isSEQ) {
+                if(isSEQ){
                     return false;
                 }
                 // 如果不是ORC,RC和SEQ,则默认为是TEXT或CSV类型
                 return !isORC && !isRC && !isSEQ;
 
-            } else if (StringUtils.equalsIgnoreCase(specifiedFileType, Constant.ORC)) {
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.ORC)){
 
                 return isORCFile(file, fs, in);
-            } else if (StringUtils.equalsIgnoreCase(specifiedFileType, Constant.RC)) {
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.RC)){
 
                 return isRCFile(filepath, in);
-            } else if (StringUtils.equalsIgnoreCase(specifiedFileType, Constant.SEQ)) {
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.SEQ)){
 
                 return isSequenceFile(filepath, in);
             }
 
-        } catch (Exception e) {
+        }catch (Exception e){
             String message = String.format("检查文件[%s]类型失败，目前支持ORC,SEQUENCE,RCFile,TEXT,CSV五种格式的文件," +
                     "请检查您文件类型和文件是否正确。", filepath);
             LOG.error(message);
@@ -604,8 +647,8 @@ public class DFSUtil {
                     return true;
                 }
             }
-        } catch (IOException e) {
-            LOG.info(String.format("检查文件类型: [%s] 不是ORC File.", file.toString()));
+        }catch (IOException e){
+            LOG.info(String.format("检查文件类型: [%s] 不是ORC File.",file.toString()));
         }
         return false;
     }
@@ -614,9 +657,9 @@ public class DFSUtil {
     private boolean isRCFile(String filepath, FSDataInputStream in) {
 
         // The first version of RCFile used the sequence file header.
-        final byte[] ORIGINAL_MAGIC = new byte[]{(byte) 'S', (byte) 'E', (byte) 'Q'};
+        final byte[] ORIGINAL_MAGIC = new byte[] {(byte) 'S', (byte) 'E', (byte) 'Q'};
         // The 'magic' bytes at the beginning of the RCFile
-        final byte[] RC_MAGIC = new byte[]{(byte) 'R', (byte) 'C', (byte) 'F'};
+        final byte[] RC_MAGIC = new byte[] {(byte) 'R', (byte) 'C', (byte) 'F'};
         // the version that was included with the original magic, which is mapped
         // into ORIGINAL_VERSION
         final byte ORIGINAL_MAGIC_VERSION_WITH_METADATA = 6;
@@ -670,7 +713,7 @@ public class DFSUtil {
                 }
             }
             return true;
-        } catch (IOException e) {
+        }catch (IOException e){
             LOG.info(String.format("检查文件类型: [%s] 不是RC File.", filepath));
         }
         return false;
@@ -678,20 +721,221 @@ public class DFSUtil {
 
     // 判断file是否是Sequence file
     private boolean isSequenceFile(String filepath, FSDataInputStream in) {
-        byte[] SEQ_MAGIC = new byte[]{(byte) 'S', (byte) 'E', (byte) 'Q'};
+        byte[] SEQ_MAGIC = new byte[] {(byte) 'S', (byte) 'E', (byte) 'Q'};
         byte[] magic = new byte[SEQ_MAGIC.length];
-        try {
+        try{
             in.seek(0);
             in.readFully(magic);
-            if (Arrays.equals(magic, SEQ_MAGIC)) {
+            if(Arrays.equals(magic, SEQ_MAGIC)){
                 return true;
-            } else {
+            }else {
                 return false;
             }
-        } catch (IOException e) {
+        }catch (IOException e){
             LOG.info(String.format("检查文件类型: [%s] 不是Sequence File.", filepath));
         }
         return false;
     }
 
+
+    //此方法根据设置的channel数量对hdfs文件进行细切分
+    public List<List<String>> splitSourceFiles(final List<String> sourceList, int adviceNumber) {
+
+        JobConf conf = new JobConf(hadoopConf);
+        FileSystem fileSystem = null;
+        try {
+            fileSystem = FileSystem.get(hadoopConf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        InputFormat inputFormat = null;
+        TextInputFormat textInputFormat = null;
+        if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.CSV) || StringUtils.equalsIgnoreCase(specifiedFileType, Constant.TEXT)){
+            textInputFormat = new TextInputFormat();
+            textInputFormat.configure(conf);
+        }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.ORC)){
+            inputFormat = new OrcInputFormat();
+        }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.RC)){
+            inputFormat = new RCFileInputFormat();
+        }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.SEQ)){
+            inputFormat = new SequenceFileInputFormat();
+        }else {
+            String message = "HdfsReader插件目前支持ORC, TEXT, CSV, SEQUENCE, RC五种格式的文件," +
+                    "请将fileType选项的值配置为ORC, TEXT, CSV, SEQUENCE 或者 RC";
+            throw DataXException.asDataXException(HdfsReaderErrorCode.FILE_TYPE_UNSUPPORT, message);
+        }
+
+        long totalSize = 0L;
+        long fileSize = 0L;
+        List<String> sourceFilesViaSplit = new ArrayList<String>();
+        Map<String,Long> fileAndSizeMap = new HashMap<String, Long>();
+
+        for(String source: sourceList){
+            try {
+                fileSize = fileSystem.getFileStatus(new Path(source)).getLen();
+                totalSize += fileSize;
+                fileAndSizeMap.put(source,fileSize);
+            } catch (IOException e) {
+                LOG.info(String.format("获取文件: [%s] 长度出错.", source));
+                e.printStackTrace();
+            }
+        }
+
+        for (Map.Entry<String, Long> entry : fileAndSizeMap.entrySet()) {
+
+            Path textPath = new Path(entry.getKey());
+            fileSize = entry.getValue();
+            InputSplit[] splits = null;
+            try {
+                conf.set(org.apache.hadoop.mapreduce.lib.input.
+                                FileInputFormat.INPUT_DIR, textPath.toString());
+                if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.CSV) || StringUtils.equalsIgnoreCase(specifiedFileType, Constant.TEXT)){
+                    splits = textInputFormat.getSplits(conf, (int) Math.ceil((1.0 * fileSize * adviceNumber / totalSize)));
+                }else{
+                    splits = inputFormat.getSplits(conf, (int) Math.ceil((1.0 * fileSize * adviceNumber / totalSize)));
+
+                }
+
+                for(int i=0; i<splits.length;i++){
+                    sourceFilesViaSplit.add(splits[i].toString());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        List<List<String>> splitedList = new ArrayList<List<String>>();
+        int averageLength = sourceFilesViaSplit.size() / adviceNumber;
+        averageLength = averageLength == 0 ? 1 : averageLength;
+
+        for (int begin = 0, end = 0; begin < sourceFilesViaSplit.size(); begin = end) {
+            end = begin + averageLength;
+            if (end > sourceFilesViaSplit.size()) {
+                end = sourceFilesViaSplit.size();
+            }
+            splitedList.add(sourceFilesViaSplit.subList(begin, end));
+        }
+        return splitedList;
+    }
+
+    public void fileStartRead(String sourceFilePath, Configuration readerSliceConfig,
+                                 RecordSender recordSender, TaskPluginCollector taskPluginCollector){
+        LOG.info(String.format("Start Read file [%s].",sourceFilePath));
+        specifiedFileType = readerSliceConfig.getNecessaryValue(Key.FILETYPE, HdfsReaderErrorCode.REQUIRED_VALUE);
+        List<ColumnEntry> column = UnstructuredStorageReaderUtil
+                .getListColumnEntry(readerSliceConfig, com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
+        String nullFormat = readerSliceConfig.getString(com.alibaba.datax.plugin.unstructuredstorage.reader.Key.NULL_FORMAT);
+
+        int splitpoint = sourceFilePath.lastIndexOf(":");
+        String sourcePath = sourceFilePath.substring(0,splitpoint);
+        long start = Long.valueOf(sourceFilePath.substring(splitpoint + 1).split("\\+")[0]);
+        long len = Long.valueOf(sourceFilePath.substring(splitpoint + 1).split("\\+")[1]);
+        FileSplit split = new FileSplit(new Path(sourcePath), start, len, (String[]) null);
+
+        RecordReader recordReader = null;
+        InputFormat inputFormat = null;
+        JobConf conf = new JobConf(hadoopConf);
+
+        try {
+            if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.CSV) || StringUtils.equalsIgnoreCase(specifiedFileType, Constant.TEXT)){
+                TextInputFormat textInputFormat = new TextInputFormat();
+                textInputFormat.configure(conf);
+                recordReader = textInputFormat.getRecordReader(split,conf,Reporter.NULL);
+                LongWritable key = new LongWritable();
+                Text value = new Text();
+                while (recordReader.next(key, value)) {
+                    UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
+                            readerSliceConfig, taskPluginCollector, value.toString());
+                }
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.RC)){
+                inputFormat = new RCFileInputFormat();
+                recordReader = inputFormat.getRecordReader(split,conf,Reporter.NULL);
+                LongWritable key = new LongWritable();
+                BytesRefArrayWritable value = new BytesRefArrayWritable();
+                Text txt = new Text();
+                while (recordReader.next(key, value)) {
+                    String[] sourceLine = new String[value.size()];
+                    txt.clear();
+                    for (int i = 0; i < value.size(); i++) {
+                        BytesRefWritable v = value.get(i);
+                        txt.set(v.getData(), v.getStart(), v.getLength());
+                        sourceLine[i] = txt.toString();
+                    }
+                    UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
+                            readerSliceConfig, sourceLine, nullFormat, taskPluginCollector);
+                }
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.SEQ)){
+                inputFormat = new SequenceFileInputFormat();
+                recordReader = inputFormat.getRecordReader(split,conf,Reporter.NULL);
+                Writable key = (Writable) recordReader.createKey();
+                Text value = (Text) recordReader.createValue();
+                while(recordReader.next(key,value)){
+                    if(StringUtils.isNotBlank(value.toString())){
+                        UnstructuredStorageReaderUtil.transportOneRecord(recordSender,
+                                readerSliceConfig ,taskPluginCollector,value.toString());
+                    }
+                }
+            }else if(StringUtils.equalsIgnoreCase(specifiedFileType, Constant.ORC)) {
+                OrcInputFormat orcinputFormat = new OrcInputFormat();
+                StringBuilder allColumns = new StringBuilder();
+                StringBuilder allColumnTypes = new StringBuilder();
+                boolean isReadAllColumns = false;
+                int columnIndexMax = -1;
+                // 判断是否读取所有列
+                if (null == column || column.size() == 0) {
+                    int allColumnsCount = getAllColumnsCount(sourcePath);
+                    columnIndexMax = allColumnsCount - 1;
+                    isReadAllColumns = true;
+                } else {
+                    columnIndexMax = getMaxIndex(column);
+                }
+                for (int i = 0; i <= columnIndexMax; i++) {
+                    allColumns.append("col");
+                    allColumnTypes.append("string");
+                    if (i != columnIndexMax) {
+                        allColumns.append(",");
+                        allColumnTypes.append(":");
+                    }
+                }
+                if (columnIndexMax >= 0) {
+                    Path orcFilePath = new Path(sourcePath);
+                    Properties p = new Properties();
+                    p.setProperty("columns", allColumns.toString());
+                    p.setProperty("columns.types", allColumnTypes.toString());
+                    OrcSerde serde = new OrcSerde();
+                    serde.initialize(conf, p);
+                    StructObjectInspector inspector = (StructObjectInspector) serde.getObjectInspector();
+                    InputFormat<?, ?> in = new OrcInputFormat();
+                    FileInputFormat.setInputPaths(conf, orcFilePath.toString());
+
+                    RecordReader reader = in.getRecordReader(split, conf, Reporter.NULL);
+                    Object key = reader.createKey();
+                    Object value = reader.createValue();
+                    // 获取列信息
+                    List<? extends StructField> fields = inspector.getAllStructFieldRefs();
+
+                    List<Object> recordFields;
+                    while (reader.next(key, value)) {
+                        recordFields = new ArrayList<Object>();
+
+                        for (int i = 0; i <= columnIndexMax; i++) {
+                            Object field = inspector.getStructFieldData(value, fields.get(i));
+                            recordFields.add(field);
+                        }
+                        transportOneRecord(readerSliceConfig, recordFields, recordSender,
+                                taskPluginCollector, isReadAllColumns, nullFormat);
+                    }
+                        reader.close();
+                }
+            }else {
+
+                    String message = "HdfsReader插件目前支持ORC, TEXT, CSV, SEQUENCE, RC五种格式的文件," +
+                            "请将fileType选项的值配置为ORC, TEXT, CSV, SEQUENCE 或者 RC";
+                    throw DataXException.asDataXException(HdfsReaderErrorCode.FILE_TYPE_UNSUPPORT, message);
+                }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 }
