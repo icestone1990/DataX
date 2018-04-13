@@ -54,7 +54,7 @@ OCSWriter是DataX实现的，基于Memcached协议的数据写入OCS通道。
                 "writer": {
                     "name": "ocswriter",
                     "parameter": {
-                        "proxy": "10.101.72.137",
+                        "proxy": "xxxx",
                         "port": "11211",
                         "userName": "user",
                         "password": "******",

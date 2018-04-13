@@ -28,7 +28,7 @@
             <includes>
                 <include>*.*</include>
             </includes>
-            <outputDirectory>plugin/reader/odpswriter/libs</outputDirectory>
+            <outputDirectory>plugin/writer/odpswriter/libs</outputDirectory>
         </fileSet>
 	</fileSets>
 

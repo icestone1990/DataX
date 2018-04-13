@@ -62,11 +62,11 @@ ODPSWriter插件用于实现往ODPS插入或者更新数据，主要提供给etl
                           "table": "odps_write_test00_partitioned",
                           "partition":"school=SiChuan-School,class=1",
                           "column": ["id","name"],
-                          "accessId": "**b7**",
-                          "accessKey": "***dv**yk**mm",
+                          "accessId": "xxx",
+                          "accessKey": "xxxx",
                           "truncate": true,
-                          "odpsServer": "http://service.odps.aliyun.com/api",
-                          "tunnelServer": "http://dt.odps.aliyun.com",
+                          "odpsServer": "http://sxxx/api",
+                          "tunnelServer": "http://xxx",
                           "accountType": "aliyun"
                        }
                     }

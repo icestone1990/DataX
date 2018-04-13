@@ -1,18 +1,23 @@
 package com.alibaba.datax.plugin.reader.mongodbreader.util;
 
-import com.alibaba.datax.common.exception.DataXException;
-import com.alibaba.datax.common.util.Configuration;
-import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
-import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoCredential;
-import com.mongodb.ServerAddress;
-
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.alibaba.datax.common.exception.DataXException;
+import com.alibaba.datax.common.util.Configuration;
+import com.alibaba.datax.plugin.reader.mongodbreader.KeyConstant;
+import com.alibaba.datax.plugin.reader.mongodbreader.MongoDBReaderErrorCode;
+
+import com.mongodb.MongoClient;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
+
+/**
+ * Created by jianying.wcj on 2015/3/17 0017.
+ * Modified by mingyan.zc on 2016/6/13.
+ */
 public class MongoUtil {
 
     public static MongoClient initMongoClient(Configuration conf) {
@@ -32,7 +37,7 @@ public class MongoUtil {
         }
     }
 
-    public static MongoClient initCredentialMongoClient(Configuration conf,String userName,String password,String database) {
+    public static MongoClient initCredentialMongoClient(Configuration conf, String userName, String password, String database) {
 
         List<Object> addressList = conf.getList(KeyConstant.MONGO_ADDRESS);
         if(!isHostPortPattern(addressList)) {
@@ -81,15 +86,5 @@ public class MongoUtil {
             }
         }
         return addressList;
-    }
-
-    public static void main(String[] args) {
-        try {
-            ArrayList hostAddress = new ArrayList();
-            hostAddress.add("127.0.0.1:27017");
-            System.out.println(MongoUtil.isHostPortPattern(hostAddress));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }

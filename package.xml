@@ -111,13 +111,6 @@
             <outputDirectory>datax</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>hbasereader/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>ossreader/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -170,13 +163,6 @@
         <!-- writer -->
         <fileSet>
             <directory>mysqlwriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>oceanbasewriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
             </includes>
@@ -274,34 +260,6 @@
             <outputDirectory>datax</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>hbasebulkwriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>hbasebulkwriter2/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>tddlwriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>mysqlrulewriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>ocswriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
@@ -309,28 +267,7 @@
             <outputDirectory>datax</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>tairwriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>hdfswriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>metaqwriter/target/datax/</directory>
-            <includes>
-                <include>**/*.*</include>
-            </includes>
-            <outputDirectory>datax</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>hbasewriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
             </includes>
@@ -351,14 +288,14 @@
             <outputDirectory>datax</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>oceanbasev10reader/target/datax/</directory>
+            <directory>hbase11xsqlwriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
             </includes>
             <outputDirectory>datax</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>oceanbasev10writer/target/datax/</directory>
+            <directory>elasticsearchwriter/target/datax/</directory>
             <includes>
                 <include>**/*.*</include>
             </includes>

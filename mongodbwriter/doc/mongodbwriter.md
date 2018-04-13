@@ -42,7 +42,7 @@ MongoDBWriter通过Datax框架获取Reader生成的数据，然后将Datax支持
                             "scoreb"
                         ],
                         "splitMode": "record",
-                        "odpsServer": "http://service-corp.odps.aliyun-inc.com/api"
+                        "odpsServer": "http://xxx/api"
                     }
                 },
                 "writer": {

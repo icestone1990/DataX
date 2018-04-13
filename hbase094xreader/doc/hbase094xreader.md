@@ -162,9 +162,9 @@ ROW                                   COLUMN+CELL
                     "name": "hbase11xreader",
                     "parameter": {
                         "hbaseConfig": {
-                            "hbase.rootdir": "hdfs: //10.101.85.161: 9000/hbase",
+                            "hbase.rootdir": "hdfs: //xxx: 9000/hbase",
                             "hbase.cluster.distributed": "true",
-                            "hbase.zookeeper.quorum": "v101085161.sqa.zmf"
+                            "hbase.zookeeper.quorum": "xxx"
                         },
                         "table": "users",
                         "encoding": "utf-8",
@@ -237,9 +237,9 @@ ROW                                   COLUMN+CELL
           "name": "hbase11xreader",
           "parameter": {
             "hbaseConfig": {
-              "hbase.rootdir": "hdfs: //10.101.85.161: 9000/hbase",
+              "hbase.rootdir": "hdfs: //xxx: 9000/hbase",
               "hbase.cluster.distributed": "true",
-              "hbase.zookeeper.quorum": "v101085161.sqa.zmf"
+              "hbase.zookeeper.quorum": "xxx"
             },
             "table": "users",
             "encoding": "utf-8",

@@ -17,7 +17,7 @@ DataX本身作为数据同步框架，将不同数据源的同步抽象为从源
 
 * 工具部署
   
-  * 方法一、直接下载DataX工具包：[DataX](https://github.com/alibaba/DataX)
+  * 方法一、直接下载DataX工具包：[DataX下载地址](http://datax-opensource.oss-cn-hangzhou.aliyuncs.com/datax.tar.gz)
     
     下载后解压至本地某个目录，进入bin目录，即可运行同步作业：
     
@@ -25,7 +25,8 @@ DataX本身作为数据同步框架，将不同数据源的同步抽象为从源
     $ cd  {YOUR_DATAX_HOME}/bin
     $ python datax.py {YOUR_JOB.json}
     ```
-    
+    自检脚本：
+    python {YOUR_DATAX_HOME}/bin/datax.py {YOUR_DATAX_HOME}/job/job.json
   * 方法二、下载DataX源码，自己编译：[DataX源码](https://github.com/alibaba/DataX)
     
     (1)、下载DataX源码：
@@ -174,81 +175,10 @@ DataX本身作为数据同步框架，将不同数据源的同步抽象为从源
     读写失败总数                    :                   0
     ```
 
-# Support Data Channels
-
-目前DataX支持的数据源有:
-
-### Reader
-
-> **Reader实现了从数据存储系统批量抽取数据，并转换为DataX标准数据交换协议，DataX任意Reader能与DataX任意Writer实现无缝对接，达到任意异构数据互通之目的。**
-
-**RDBMS 关系型数据库**
-
-* [MysqlReader](https://github.com/alibaba/DataX/blob/master/mysqlreader/doc/mysqlreader.md): 使用JDBC批量抽取Mysql数据集。
-* [OracleReader](https://github.com/alibaba/DataX/blob/master/oraclereader/doc/oraclereader.md): 使用JDBC批量抽取Oracle数据集。
-* [SqlServerReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-sqlserverreader): 使用JDBC批量抽取SqlServer数据集
-* [PostgresqlReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-pgreader): 使用JDBC批量抽取PostgreSQL数据集
-* [DrdsReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-drdsreader): 针对公有云上DRDS的批量数据抽取工具。
-
-**数仓数据存储**
-
-* [ODPSReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-odpsreader): 使用ODPS Tunnel SDK批量抽取ODPS数据。
-
-**NoSQL数据存储**
-
-* [OTSReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-otsreader): 针对公有云上OTS的批量数据抽取工具。
-* [HBaseReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-hbasereader): 针对 HBase 0.94版本的在线数据抽取工具
-
-**无结构化数据存储**
-
-* [TxtFileReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-txtfilereader): 读取(递归/过滤)本地文件。
-* [FtpReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-ftpreader): 读取(递归/过滤)远程ftp文件。
-* [HdfsReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-hdfsreader): 针对Hdfs文件系统中textfile和orcfile文件批量数据抽取工具。 
-* [OssReader](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-ossreader): 针对公有云OSS产品的批量数据抽取工具。
-* StreamReader
-
-### Writer
-
-----
-
-> **Writer实现了从DataX标准数据交换协议，翻译为具体的数据存储类型并写入目的数据存储。DataX任意Writer能与DataX任意Reader实现无缝对接，达到任意异构数据互通之目的。**
-
-----
-
-**RDBMS 关系型数据库**
-
-* [MysqlWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-mysqlwriter): 使用JDBC(Insert,Replace方式)写入Mysql数据库
-* [OracleWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-oraclewriter): 使用JDBC(Insert方式)写入Oracle数据库
-* [PostgresqlWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-pgwriter): 使用JDBC(Insert方式)写入PostgreSQL数据库
-* [SqlServerWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-sqlserverwriter): 使用JDBC(Insert方式)写入sqlserver数据库
-* [DrdsWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-drdswriter): 使用JDBC(Replace方式)写入Drds数据库
-
-**数仓数据存储**
-
-* [ODPSWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-odpswriter): 使用ODPS Tunnel SDK向ODPS写入数据。
-* [ADSWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-adswriter): 使用ODPS中转将数据导入ADS。
-
-**NoSQL数据存储**
-
-* [OTSWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-otswriter): 使用OTS SDK向OTS Public模型的表中导入数据。
-* [OCSWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-ocswriter)
-* [MongoDBReader](mongo_db_reader)：MongoDBReader
-* [MongoDBWriter](mongo_db_writer)：MongoDBWriter
-
-**无结构化数据存储**
-
-* [TxtFileWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-txtfilewriter): 提供写入本地文件功能。
-* [OssWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-osswriter): 使用OSS SDK写入OSS数据。
-* [HdfsWriter](http://gitlab.alibaba-inc.com/datax/datax/wikis/datax-plugin-hdfswriter): 提供向Hdfs文件系统中写入textfile文件和orcfile文件功能。
-* StreamWriter
-
-* [DataX Transform] (https://github.com/alibaba/DataX/blob/master/transformer/doc/transformer.md): DataX Transform功能说明
-
 # Contact us
 
 Google Groups: [DataX-user](https://github.com/alibaba/DataX)
 
-QQ群:??
 
 
 
