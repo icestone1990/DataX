@@ -62,6 +62,7 @@
         <module>rdbmsreader</module>
         <module>hbase11xreader</module>
         <module>hbase094xreader</module>
+        <module>elasticsearchreader</module>
 
         <!-- writer -->
         <module>mysqlwriter</module>
