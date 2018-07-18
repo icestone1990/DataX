@@ -6,7 +6,7 @@
 
 ## 1 快速介绍
 
-PostgresqlWriter插件实现了写入数据到 PostgreSQL主库目的表的功能。在底层实现上，PostgresqlWriter通过JDBC连接远程 PostgreSQL 数据库，并执行相应的 insert into ... sql 语句将数据写入 PostgreSQL，内部会分批次提交入库。
+PostgresqlWriter插件实现了写入数据到 PostgreSQL主库目的表的功能。在底层实现上，PostgresqlWriter通过JDBC连接远程 PostgreSQL 数据库，并执行相应的 Copy FROM 语句将数据写入 PostgreSQL，内部会分批次提交入库。
 
 PostgresqlWriter面向ETL开发工程师，他们使用PostgresqlWriter从数仓导入数据到PostgreSQL。同时 PostgresqlWriter亦可以作为数据迁移工具为DBA等用户提供服务。
 
@@ -16,12 +16,12 @@ PostgresqlWriter面向ETL开发工程师，他们使用PostgresqlWriter从数仓
 PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据你配置生成相应的SQL插入语句
 
 
-* `insert into...`(当主键/唯一性索引冲突时会写不进去冲突的行)
+*  `copy from ...`(当主键/唯一性索引冲突时会写不进去冲突的行)
 
 <br />
 
     注意：
-    1. 目的表所在数据库必须是主库才能写入数据；整个任务至少需具备 insert into...的权限，是否需要其他权限，取决于你任务配置中在 preSql 和 postSql 中指定的语句。
+    1. 目的表所在数据库必须是主库才能写入数据；整个任务至少需具备 copy from ..的权限，是否需要其他权限，取决于你任务配置中在 preSql 和 postSql 中指定的语句。
     2. PostgresqlWriter和MysqlWriter不同，不支持配置writeMode参数。
 
 
@@ -31,6 +31,7 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
 
 * 这里使用一份从内存产生到 PostgresqlWriter导入的数据。
 
+```json
 ```json
 {
     "job": {
@@ -70,22 +71,29 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
                     }
                 },
                 "writer": {
-                    "name": "postgresqlwriter",
+                    "name": "postgresqlWriter",
                     "parameter": {
                         "username": "xx",
                         "password": "xx",
+                        "segment_reject_limit": 0,
+                        "copy_queue_size": 100000,
+                        "num_copy_processor": 4,
+                        "num_copy_writer": 1,
                         "column": [
-                            "id",
-                            "name"
+                            "name",
+                            "fileSize",
+                            "fileDate",
+                            "flagOpen",
+                            "memo"
                         ],
                         "preSql": [
-                            "delete from test"
+                            "truncate table xx"
                         ],
                         "connection": [
                             {
-                                "jdbcUrl": "jdbc:postgresql://127.0.0.1:3002/datax",
+                                "jdbcUrl": "jdbc:postgresql://127.0.0.1:5432/xx",
                                 "table": [
-                                    "test"
+                                    "xx"
                                 ]
                             }
                         ]
@@ -96,8 +104,11 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
     }
 }
 
+
 ```
 
+
+### 3.2 参数说明
 
 ### 3.2 参数说明
 
@@ -128,6 +139,26 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
   * 必选：是 <br />
 
   * 默认值：无 <br />
+
+* **segment\_reject\_limit**
+  * 描述： 每个计算节点可接受的错误行数，0为不接受，或者大于1的正整数
+  * 必选： 否
+  * 默认值：0
+
+* **copy\_queue\_size**
+  * 描述： 线程异步队列大小，增大此参数增加内存消耗，提升性能
+  * 必选： 否
+  * 默认值：100000
+
+* **num\_copy\_processor**
+  * 描述： 用于进行格式化数据的线程数
+  * 必选： 否
+  * 默认值：4
+
+* **num_copy_writer**
+  * 描述： 写入数据库的并发数
+  * 必选： 否
+  * 默认值：1
 
 * **table**
 
@@ -168,11 +199,12 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
 
 * **batchSize**
 
-	* 描述：一次性批量提交的记录数大小，该值可以极大减少DataX与PostgreSql的网络交互次数，并提升整体吞吐量。但是该值设置过大可能会造成DataX运行进程OOM情况。<br />
+	* 描述：不支持此参数。<br />
 
 	* 必选：否 <br />
 
 	* 默认值：1024 <br />
+
 
 ### 3.3 类型转换
 
@@ -227,27 +259,7 @@ PostgresqlWriter通过 DataX 框架获取 Reader 生成的协议数据，根据�
 
 ### 4.2 测试报告
 
-#### 4.2.1 单表测试报告
-
-| 通道数|  批量提交batchSize | DataX速度(Rec/s)| DataX流量(M/s) | DataX机器运行负载
-|--------|--------| --------|--------|--------|--------|
-|1| 128 | 9259 | 0.55 | 0.3
-|1| 512 | 10869 | 0.653 | 0.3
-|1| 2048 | 9803 | 0.589 | 0.8
-|4| 128 | 30303 | 1.82 | 1
-|4| 512 | 36363 | 2.18 | 1
-|4| 2048 | 36363 | 2.18 | 1
-|8| 128 | 57142 | 3.43 | 2
-|8| 512 | 66666 | 4.01 | 1.5
-|8| 2048 | 66666 | 4.01 | 1.1
-|16| 128 | 88888 | 5.34 | 1.8
-|16| 2048 | 94117 | 5.65 | 2.5
-|32| 512 | 76190 | 4.58 | 3
-
-#### 4.2.2 性能测试小结
-1. `channel数对性能影响很大`
-2. `通常不建议写入数据库时，通道个数 > 32`
-
+暂无
 
 ## FAQ
 

@@ -5,96 +5,92 @@ import com.alibaba.datax.common.plugin.RecordReceiver;
 import com.alibaba.datax.common.spi.Writer;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.datax.plugin.rdbms.util.DBUtilErrorCode;
-import com.alibaba.datax.plugin.rdbms.util.DataBaseType;
-import com.alibaba.datax.plugin.rdbms.writer.CommonRdbmsWriter;
 import com.alibaba.datax.plugin.rdbms.writer.Key;
 
 import java.util.List;
 
 public class PostgresqlWriter extends Writer {
-	private static final DataBaseType DATABASE_TYPE = DataBaseType.PostgreSQL;
 
 	public static class Job extends Writer.Job {
 		private Configuration originalConfig = null;
-		private CommonRdbmsWriter.Job commonRdbmsWriterMaster;
+		private PostgresqlWriterJob postgresqlWriterJob;
 
 		@Override
 		public void init() {
 			this.originalConfig = super.getPluginJobConf();
 
-			// warn：not like mysql, PostgreSQL only support insert mode, don't use
+			// warn：not like mysql, PostgreSQL only support insert mode, don't
+			// use
 			String writeMode = this.originalConfig.getString(Key.WRITE_MODE);
 			if (null != writeMode) {
 				throw DataXException.asDataXException(DBUtilErrorCode.CONF_ERROR,
-					String.format("写入模式(writeMode)配置有误. 因为PostgreSQL不支持配置参数项 writeMode: %s, PostgreSQL仅使用insert sql 插入数据. 请检查您的配置并作出修改.", writeMode));
+						String.format(
+								"写入模式(writeMode)配置有误. 因为Postgresql Database不支持配置参数项 writeMode: %s, Postgresql Database仅使用copy from 插入数据. 请检查您的配置并作出修改.",
+								writeMode));
 			}
 
-			this.commonRdbmsWriterMaster = new CommonRdbmsWriter.Job(DATABASE_TYPE);
-			this.commonRdbmsWriterMaster.init(this.originalConfig);
+			int segment_reject_limit = this.originalConfig.getInt("segment_reject_limit", 0);
+
+			if (segment_reject_limit != 0 && segment_reject_limit < 2) {
+				throw DataXException.asDataXException(DBUtilErrorCode.CONF_ERROR, "segment_reject_limit 必须为0或者大于等于2");
+			}
+
+			this.postgresqlWriterJob = new PostgresqlWriterJob();
+			this.postgresqlWriterJob.init(this.originalConfig);
 		}
 
 		@Override
 		public void prepare() {
-			this.commonRdbmsWriterMaster.prepare(this.originalConfig);
+			this.postgresqlWriterJob.prepare(this.originalConfig);
 		}
 
 		@Override
 		public List<Configuration> split(int mandatoryNumber) {
-			return this.commonRdbmsWriterMaster.split(this.originalConfig, mandatoryNumber);
+			return this.postgresqlWriterJob.split(this.originalConfig, mandatoryNumber);
 		}
 
 		@Override
 		public void post() {
-			this.commonRdbmsWriterMaster.post(this.originalConfig);
+			this.postgresqlWriterJob.post(this.originalConfig);
 		}
 
 		@Override
 		public void destroy() {
-			this.commonRdbmsWriterMaster.destroy(this.originalConfig);
+			this.postgresqlWriterJob.destroy(this.originalConfig);
 		}
 
 	}
 
 	public static class Task extends Writer.Task {
 		private Configuration writerSliceConfig;
-		private CommonRdbmsWriter.Task commonRdbmsWriterSlave;
+		private PostgresqlWriterTask postgresqlWriterTask;
 
 		@Override
 		public void init() {
 			this.writerSliceConfig = super.getPluginJobConf();
-			this.commonRdbmsWriterSlave = new CommonRdbmsWriter.Task(DATABASE_TYPE){
-				@Override
-				public String calcValueHolder(String columnType){
-					if("serial".equalsIgnoreCase(columnType)){
-						return "?::int";
-					}else if("bit".equalsIgnoreCase(columnType)){
-						return "?::bit varying";
-					}
-					return "?::" + columnType;
-				}
-			};
-			this.commonRdbmsWriterSlave.init(this.writerSliceConfig);
+			this.postgresqlWriterTask = new PostgresqlWriterTask();
+			this.postgresqlWriterTask.init(this.writerSliceConfig);
 		}
 
 		@Override
 		public void prepare() {
-			this.commonRdbmsWriterSlave.prepare(this.writerSliceConfig);
+			this.postgresqlWriterTask.prepare(this.writerSliceConfig);
 		}
 
+		@Override
 		public void startWrite(RecordReceiver recordReceiver) {
-			this.commonRdbmsWriterSlave.startWrite(recordReceiver, this.writerSliceConfig, super.getTaskPluginCollector());
+			this.postgresqlWriterTask.startWrite(recordReceiver, this.writerSliceConfig,
+					super.getTaskPluginCollector());
 		}
 
 		@Override
 		public void post() {
-			this.commonRdbmsWriterSlave.post(this.writerSliceConfig);
+			this.postgresqlWriterTask.post(this.writerSliceConfig);
 		}
 
 		@Override
 		public void destroy() {
-			this.commonRdbmsWriterSlave.destroy(this.writerSliceConfig);
+			this.postgresqlWriterTask.destroy(this.writerSliceConfig);
 		}
-
 	}
-
 }
