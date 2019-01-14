@@ -87,7 +87,7 @@ public class PostgresqlWriterTask extends CommonRdbmsWriter.Task {
 		this.writerSliceConfig = writerSliceConfig;
 
 		// 每个计算节点可接受的错误行数，0为不接受，或者大于1的正整数
-		int segment_reject_limit = writerSliceConfig.getInt("segment_reject_limit", 0);
+//		int segment_reject_limit = writerSliceConfig.getInt("segment_reject_limit", 0);
 
 		// 线程异步队列大小，增大此参数增加内存消耗，提升性能
 		this.queueSize = writerSliceConfig.getInt("copy_queue_size", 100000);
@@ -102,7 +102,7 @@ public class PostgresqlWriterTask extends CommonRdbmsWriter.Task {
 		this.numWriter = this.numWriter < 1 ? 1 : this.numWriter;
 
 		// 获取copy语句的sql模板
-		String sql = getCopySql(this.table, this.columns, segment_reject_limit);
+		String sql = getCopySql(this.table, this.columns, 0);
 
 		// inner record
 		LinkedBlockingQueue<Record> recordQueue = new LinkedBlockingQueue<Record>(queueSize);

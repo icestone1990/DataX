@@ -41,7 +41,7 @@ public class PostgresqlWriterWorker implements Callable<Long> {
 		this.pipeIn = new PipedInputStream(pipeOut);
 		this.sql = copySql;
 
-		changeCsvSizelimit(connection);
+//		changeCsvSizelimit(connection);
 
 		this.copyResult = new FutureTask<Long>(new Callable<Long>() {
 

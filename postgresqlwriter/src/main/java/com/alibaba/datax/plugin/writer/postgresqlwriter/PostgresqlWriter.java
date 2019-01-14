@@ -29,11 +29,11 @@ public class PostgresqlWriter extends Writer {
 								writeMode));
 			}
 
-			int segment_reject_limit = this.originalConfig.getInt("segment_reject_limit", 0);
-
-			if (segment_reject_limit != 0 && segment_reject_limit < 2) {
-				throw DataXException.asDataXException(DBUtilErrorCode.CONF_ERROR, "segment_reject_limit 必须为0或者大于等于2");
-			}
+//			int segment_reject_limit = this.originalConfig.getInt("segment_reject_limit", 0);
+//
+//			if (segment_reject_limit != 0 && segment_reject_limit < 2) {
+//				throw DataXException.asDataXException(DBUtilErrorCode.CONF_ERROR, "segment_reject_limit 必须为0或者大于等于2");
+//			}
 
 			this.postgresqlWriterJob = new PostgresqlWriterJob();
 			this.postgresqlWriterJob.init(this.originalConfig);

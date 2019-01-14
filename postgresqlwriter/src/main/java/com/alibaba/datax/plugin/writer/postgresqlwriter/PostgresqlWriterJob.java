@@ -46,10 +46,10 @@ public class PostgresqlWriterJob extends CommonRdbmsWriter.Job {
 
 		List<String> sqls = new ArrayList<String>();
 
-		for (String table : tables) {
-			sqls.add("SELECT gp_truncate_error_log('" + table + "');");
-			LOG.info("为 {} 清理 ERROR LOG. context info:{}.", table, jdbcUrl);
-		}
+//		for (String table : tables) {
+//			sqls.add("SELECT gp_truncate_error_log('" + table + "');");
+//			LOG.info("为 {} 清理 ERROR LOG. context info:{}.", table, jdbcUrl);
+//		}
 
 		WriterUtil.executeSqls(conn, sqls, jdbcUrl, DataBaseType.PostgreSQL);
 		DBUtil.closeDBResources(null, null, conn);
@@ -61,36 +61,36 @@ public class PostgresqlWriterJob extends CommonRdbmsWriter.Job {
 	public void post(Configuration originalConfig) {
 		super.post(originalConfig);
 
-		String username = originalConfig.getString(Key.USERNAME);
-		String password = originalConfig.getString(Key.PASSWORD);
-
-		// 已经由 prepare 进行了appendJDBCSuffix处理
-		String jdbcUrl = originalConfig.getString(Key.JDBC_URL);
-
-		Connection conn = DBUtil.getConnection(DataBaseType.PostgreSQL, jdbcUrl, username, password);
-
-		for (String table : tables) {
-			int errors = 0;
-			ResultSet res = null;
-			String sql = "SELECT count(*) from gp_read_error_log('" + table + "');";
-
-			try {
-				res = DBUtil.query(conn, sql, 10);
-				if (res.next()) {
-					errors = res.getInt(1);
-				}
-				res.close();
-				conn.commit();
-			} catch (SQLException e) {
-				LOG.debug("Fail to get error log info:" + e.getMessage());
-			}
-
-			if (errors > 0) {
-				LOG.warn("加载表 {} 时发现 {} 条错误数据, 使用 \"SELECT * from gp_read_error_log('{}');\" 查看详情", table,
-						errors, table);
-			}
-		}
-
-		DBUtil.closeDBResources(null, null, conn);
+//		String username = originalConfig.getString(Key.USERNAME);
+//		String password = originalConfig.getString(Key.PASSWORD);
+//
+//		// 已经由 prepare 进行了appendJDBCSuffix处理
+//		String jdbcUrl = originalConfig.getString(Key.JDBC_URL);
+//
+//		Connection conn = DBUtil.getConnection(DataBaseType.PostgreSQL, jdbcUrl, username, password);
+//
+//		for (String table : tables) {
+//			int errors = 0;
+//			ResultSet res = null;
+//			String sql = "SELECT count(*) from gp_read_error_log('" + table + "');";
+//
+//			try {
+//				res = DBUtil.query(conn, sql, 10);
+//				if (res.next()) {
+//					errors = res.getInt(1);
+//				}
+//				res.close();
+//				conn.commit();
+//			} catch (SQLException e) {
+//				LOG.debug("Fail to get error log info:" + e.getMessage());
+//			}
+//
+//			if (errors > 0) {
+//				LOG.warn("加载表 {} 时发现 {} 条错误数据, 使用 \"SELECT * from gp_read_error_log('{}');\" 查看详情", table,
+//						errors, table);
+//			}
+//		}
+//
+//		DBUtil.closeDBResources(null, null, conn);
 	}
 }
