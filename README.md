@@ -39,8 +39,7 @@ DataX目前已经有了比较全面的插件体系，主流的RDBMS数据库、N
 |              | SQLServer  |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/sqlserverreader/doc/sqlserverreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/sqlserverwriter/doc/sqlserverwriter.md)|
 |              | PostgreSQL |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/postgresqlreader/doc/postgresqlreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/postgresqlwriter/doc/postgresqlwriter.md)|
 |              | DRDS |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/drdsreader/doc/drdsreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/drdswriter/doc/drdswriter.md)|
-|              | 达梦         |     √     |     √     |[读]() 、[写]()|
-|              | 通用RDBMS(支持所有关系型数据库)         |     √     |     √     |[读]() 、[写]()|
+|              | 通用RDBMS(支持所有关系型数据库)         |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/rdbmsreader/doc/rdbmsreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/rdbmswriter/doc/rdbmswriter.md)|
 | 阿里云数仓数据存储    | ODPS       |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/odpsreader/doc/odpsreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/odpswriter/doc/odpswriter.md)|
 |              | ADS        |           |     √     |[写](https://github.com/alibaba/DataX/blob/master/adswriter/doc/adswriter.md)|
 |              | OSS        |     √     |     √     |[读](https://github.com/alibaba/DataX/blob/master/ossreader/doc/ossreader.md) 、[写](https://github.com/alibaba/DataX/blob/master/osswriter/doc/osswriter.md)|
@@ -56,7 +55,7 @@ DataX目前已经有了比较全面的插件体系，主流的RDBMS数据库、N
 |              | Elasticsearch       |         |     √     |[写](https://github.com/alibaba/DataX/blob/master/elasticsearchwriter/doc/elasticsearchwriter.md)|
 
 # 我要开发新的插件
-请点击：[DataX插件开发宝典](xxx)
+请点击：[DataX插件开发宝典](https://github.com/alibaba/DataX/blob/master/dataxPluginDev.md)
 
 # 项目成员
 
@@ -106,6 +105,7 @@ This software is free to use under the Apache License [Apache license](https://g
 ````
 钉钉用户请扫描以下二维码进行讨论：
 
-![DataX-OpenSource-Dingding](https://raw.githubusercontent.com/alibaba/DataX/master/images/datax-opensource-dingding.png)
+![DataX-OpenSource-Dingding](https://img.alicdn.com/tfs/TB1nPz6rbGYBuNjy0FoXXciBFXa-310-425.png)
+
 
 
