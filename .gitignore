@@ -1,9 +1,9 @@
-.gitignore
-.settings
+/target/
 .classpath
 .project
-target
-.git
-.idea
-*iml
+.settings
 .DS_Store
+/logs/
+.idea/
+*.iml
+target/
