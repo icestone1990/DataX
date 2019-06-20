@@ -321,7 +321,8 @@ public class ESWriter extends Writer {
                     ESFieldType columnType = typeList.get(i);
                     //如果是数组类型，那它传入的必是字符串类型
                     if (columnList.get(i).isArray() != null && columnList.get(i).isArray()) {
-                        String[] dataList = column.asString().split(splitter);
+                        String value = column.asString();
+                        String[] dataList = value == null ? null : value.split(splitter);
                         if (!columnType.equals(ESFieldType.DATE)) {
                             data.put(columnName, dataList);
                         } else {
@@ -384,7 +385,6 @@ public class ESWriter extends Writer {
                         }
                     }
                 }
-
                 if (id == null) {
                     //id = UUID.randomUUID().toString();
                     bulkaction.addAction(new Index.Builder(data).build());
